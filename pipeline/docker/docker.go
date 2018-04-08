@@ -153,7 +153,7 @@ func process(ctx *context.Context, docker config.Docker, artifact artifact.Artif
 		images = append(images, fmt.Sprintf("%s:%s", docker.Image, tag))
 	}
 	if err := os.Link(docker.Dockerfile, dockerfile); err != nil {
-		return errors.Wrap(err, "failed to link dockerfile")
+		return errors.Wrap(err, fmt.Sprintf("failed to link dockerfile (%s => %s)", docker.Dockerfile, dockerfile))
 	}
 	for _, file := range docker.Files {
 		if err := link(file, filepath.Join(root, filepath.Base(file))); err != nil {

@@ -2,7 +2,6 @@ package env
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -60,7 +59,8 @@ func TestEmptyFileEnv(t *testing.T) {
 
 func TestEmptyEnvFile(t *testing.T) {
 	assert.NoError(t, os.Unsetenv("GITHUB_TOKEN"))
-	f, err := ioutil.TempFile("", "token")
+	f, err := testlib.CreateTempFile("", "token")
+	defer os.Remove(f.Name())
 	assert.NoError(t, err)
 	assert.NoError(t, os.Chmod(f.Name(), 0377))
 	var ctx = &context.Context{
@@ -70,7 +70,7 @@ func TestEmptyEnvFile(t *testing.T) {
 			},
 		},
 	}
-	assert.EqualError(t, Pipe{}.Run(ctx), fmt.Sprintf("failed to load github token: open %s: permission denied", f.Name()))
+	assertPermissionDeniedError(t, f, Pipe{}.Run(ctx), "failed to load github token: ")
 }
 
 func TestInvalidEnvChecksSkipped(t *testing.T) {
@@ -93,7 +93,7 @@ func TestLoadEnv(t *testing.T) {
 	t.Run("env file exists", func(tt *testing.T) {
 		var env = "SUPER_SECRET_ENV_NOPE"
 		assert.NoError(tt, os.Unsetenv(env))
-		f, err := ioutil.TempFile("", "token")
+		f, err := testlib.CreateTempFile("", "token")
 		assert.NoError(t, err)
 		fmt.Fprintf(f, "123")
 		v, err := loadEnv(env, f.Name())
@@ -103,7 +103,7 @@ func TestLoadEnv(t *testing.T) {
 	t.Run("env file with an empty line at the end", func(tt *testing.T) {
 		var env = "SUPER_SECRET_ENV_NOPE"
 		assert.NoError(tt, os.Unsetenv(env))
-		f, err := ioutil.TempFile("", "token")
+		f, err := testlib.CreateTempFile("", "token")
 		assert.NoError(t, err)
 		fmt.Fprintf(f, "123\n")
 		v, err := loadEnv(env, f.Name())
@@ -113,12 +113,16 @@ func TestLoadEnv(t *testing.T) {
 	t.Run("env file is not readable", func(tt *testing.T) {
 		var env = "SUPER_SECRET_ENV_NOPE"
 		assert.NoError(tt, os.Unsetenv(env))
-		f, err := ioutil.TempFile("", "token")
+		f, err := testlib.CreateTempFile("", "token")
 		assert.NoError(t, err)
 		fmt.Fprintf(f, "123")
 		os.Chmod(f.Name(), 0377)
 		v, err := loadEnv(env, f.Name())
-		assert.EqualError(tt, err, fmt.Sprintf("open %s: permission denied", f.Name()))
+		assertPermissionDeniedError(tt, f, err, "")
 		assert.Equal(tt, "", v)
 	})
+}
+
+func assertPermissionDeniedError(t *testing.T, f *os.File, err error, errPrefix string) {
+	assert.EqualError(t, err, fmt.Sprintf("%sFile '%s' could not be opened: open %s: permission denied", errPrefix, f.Name(), f.Name()))
 }

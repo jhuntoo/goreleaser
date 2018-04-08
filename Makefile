@@ -30,6 +30,18 @@ test:
 	go test $(TEST_OPTIONS) -failfast -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt $(SOURCE_FILES) -run $(TEST_PATTERN) -timeout=2m
 .PHONY: cover
 
+# Run all the non-docker tests in docker
+testincontainer:
+	docker build -t devgorealser -f Dockerfile.dev .
+	docker run -it --privileged \
+		-v $(shell pwd):/go/src/github.com/goreleaser/goreleaser:rw \
+		-v /tmp:/tmp:rw \
+		-w /go/src/github.com/goreleaser/goreleaser  \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		devgorealser:latest \
+		go test $(TEST_OPTIONS) -failfast -race -coverpkg=./... -covermode=atomic -coverprofile=coverage.txt $(SOURCE_FILES) -run $(TEST_PATTERN) -timeout=2m
+
+
 # Run all the tests and opens the coverage report
 cover: test
 	go tool cover -html=coverage.txt

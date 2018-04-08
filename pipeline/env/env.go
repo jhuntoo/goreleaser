@@ -10,6 +10,8 @@ import (
 	"github.com/goreleaser/goreleaser/pipeline"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
+	"fmt"
+	"io"
 )
 
 // ErrMissingToken indicates an error when GITHUB_TOKEN is missing in the environment
@@ -38,6 +40,7 @@ func (Pipe) Run(ctx *context.Context) error {
 	if ctx.SkipPublish {
 		return pipeline.ErrSkipPublishEnabled
 	}
+
 	if ctx.Token == "" && err == nil {
 		return ErrMissingToken
 	}
@@ -51,15 +54,23 @@ func loadEnv(env, path string) (string, error) {
 	}
 	path, err := homedir.Expand(path)
 	if err != nil {
-		return "", err
+		return "",  errors.Wrap(err, "HOME could not be determnined")
 	}
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return "", nil
 	}
 	if err != nil {
-		return "", err
+		return "",  errors.Wrap(err, fmt.Sprintf("File '%s' could not be opened", path))
 	}
 	bts, _, err := bufio.NewReader(f).ReadLine()
-	return string(bts), err
+
+	if err == io.EOF {
+		return "", nil
+	}
+
+	if err != nil {
+		return "",  errors.Wrap(err, fmt.Sprintf("File '%s' could not be read", path))
+	}
+	return string(bts), nil
 }

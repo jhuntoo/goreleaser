@@ -1,0 +1,45 @@
+FROM ubuntu:16.04
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV INITRD No
+ENV LANG en_US.UTF-8
+ENV GOVERSION 1.10.1
+ENV GOROOT /opt/go
+ENV GOPATH /go
+ENV BUILD_USER goreleaser
+ENV REQUIRED_PACKAGES "git docker-ce rpm snapcraft gnupg2 build-essential"
+ENV BUILD_PACKAGES "apt-transport-https ca-certificates curl software-properties-common"
+
+WORKDIR ${GOPATH}/github.com/goreleaser/goreleaser/
+
+RUN cd /opt && apt-get update && apt-get install -y curl && curl https://storage.googleapis.com/golang/go${GOVERSION}.linux-amd64.tar.gz -o go${GOVERSION}.linux-amd64.tar.gz && \
+    tar zxf go${GOVERSION}.linux-amd64.tar.gz && rm go${GOVERSION}.linux-amd64.tar.gz && \
+    ln -s /opt/go/bin/go /usr/bin/ && \
+    mkdir -p $GOPATH
+
+RUN apt-get update && \
+    apt-get install -y ${BUILD_PACKAGES} && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y ${REQUIRED_PACKAGES}
+
+RUN go get -u golang.org/x/tools/cmd/stringer && \
+	go get -u golang.org/x/tools/cmd/cover && \
+	go get -u github.com/caarlos0/static/cmd/static-docs && \
+	go get -u github.com/caarlos0/bandep && \
+	go get -u gopkg.in/alecthomas/gometalinter.v2
+
+
+RUN find /tmp -type d -exec chmod 0777 {} \;
+RUN find /home -type d -exec chmod 0777 {} \;
+RUN find ${GO_PATH} -type d -exec chmod 0777 {} \;
+
+COPY docker-entrypoint.sh /usr/local/bin/
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+RUN useradd -ms /bin/bash ${BUILD_USER}
+RUN usermod -aG sudo ${BUILD_USER}
+RUN usermod -aG docker ${BUILD_USER}
+RUN echo "${BUILD_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+USER goreleaser

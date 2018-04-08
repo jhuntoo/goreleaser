@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/pkg/errors"
 )
 
 // Mktmp creates a new tempdir, cd into it and provides a back function that
@@ -20,4 +21,16 @@ func Mktmp(t *testing.T) (folder string, back func()) {
 	return folder, func() {
 		assert.NoError(t, os.Chdir(current))
 	}
+}
+
+func CreateTempFile(content string, prefix string) (*os.File, error) {
+	file, err := ioutil.TempFile(os.TempDir(), prefix)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating temp file")
+	}
+	_, err = file.WriteString(content)
+	if err != nil {
+		return nil, errors.Wrap(err, "error writing to file")
+	}
+	return file, nil
 }
